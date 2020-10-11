@@ -26,6 +26,12 @@ const { Gateway, Wallets } = require('fabric-network');
 const mongoose = require('mongoose');
 mongoose.connect('mongodb://127.0.0.1:27017/bridgeyloaddb3');
 
+var redis = require('redis'),
+    client = redis.createClient()
+
+var proximity = require('geo-proximity').initialize(client)
+
+
 //const credentials= {
  // key: privateKey,
 //	cert: certificate
@@ -65,17 +71,73 @@ var bridgeySchema = new mongoose.Schema({
    
 var bridgeyDB = mongoose.model("bridgeynewgps", bridgeySchema);
 
-async function addDB(longitude, latitude, userid, gpsdate) {
+//db done {
+ // Longitude: 1602432663801,
+ // Latitude: -84.578062,
+//  UserID: 39.18974,
+//  GPSDate: '228',
+//  GPSSquare: null,
+//  _id: 5f832e970c187c131c5589e9,
+//  __v: 0
+//}
+async function addGPS(longitude, latitude, userid, GPSDate, GPSSquare,gpsNumber) {
+    try {
+        const ccpPath1 = "./fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json";
+        const ccp = JSON.parse(fs.readFileSync(ccpPath1, 'utf8'));
+        // Create a new file system based wallet for managing identities.
+        const walletPath = path.join(process.cwd(), 'wallet');
+        const wallet = await Wallets.newFileSystemWallet(walletPath);
+        console.log(`Wallet path: ${walletPath}`);
+
+        // Check to see if we've already enrolled the user.
+        const identity = await wallet.get('appUser');
+        if (!identity) {
+            console.log('An identity for the user "appUser" does not exist in the wallet');
+            console.log('Run the registerUser.js application before retrying');
+            return;
+        }
+
+        // Create a new gateway for connecting to our peer node.
+        const gateway = new Gateway();
+        await gateway.connect(ccp, { wallet, identity: 'appUser', discovery: { enabled: true, asLocalhost: true } });
+
+        // Get the network (channel) our contract is deployed to.
+        const network = await gateway.getNetwork('mychannel');
+
+        // Get the contract from the network.
+        const contract = network.getContract('fabcar');
+
+        await contract.submitTransaction('createGPS',gpsNumber, longitude, latitude, userid, GPSDate);
+        console.log('Transaction has been submitted');
+
+        // Disconnect from the gateway.
+        await gateway.disconnect();
+
+    } catch (error) {
+        console.error(`Failed to submit transaction: ${error}`);
+        process.exit(1);
+    }
+}
+
+
+async function addDB(longitude, latitude, userid, gpsdate, square) {
   var bridgeyCreate = new bridgeyDB({
     Longitude : longitude,
     Latitude : latitude,
     UserID : userid,
-    GPSDate : gpsdate
+    GPSDate : gpsdate,
+GPSSquare: square
     });
+	var doc =1;
     bridgeyCreate.save(function(err, doc){
         if(err) throw err;
-         console.log("db done");
+         console.log("db done", doc);
+       console.log("id",doc);
+                           console.log("id string", doc["_id"]);
+                           addGPS(longitude, latitude, userid, gpsdate, square,doc["_id"])
+
       });
+      return doc;
 }
 
 
@@ -107,6 +169,39 @@ app.post("/api/readPos", asyncHandler(async (req, res, next) => {
 
 }));
 
+async function checkDist(longitude, latitude, userid, gpsdate) {
+// 800 refers to 800 metres
+	var x=0;
+	console.log("longitude",longitude);
+	console.log("latitude",latitude);
+        proximity.nearby(latitude, longitude, 800, function(err, locations){
+           if(err) console.error(err)
+           else {
+		   console.log("len",locations.length);
+		   if (locations.length>0) {
+		console.log("cond met", gpsdate);
+                       x=1;
+			   var id = addDB(   longitude, latitude, userid,gpsdate, 1);
+	//		   console.log("id",id);
+	//		   console.log("id string", id["_id"]);
+//			   addGPS(longitude, latitude, userid, gpsdate, x,id["_id"]) 
+		   }
+	   }
+        })
+	return x;
+}
+
+
+function addLocs(longitude, latitude) {
+ var items=[];
+            let locationlabel = "xx";
+            let loc = [latitude, longitude, locationlabel];
+            items.push(loc);
+        proximity.addLocations(items, function(err, reply){
+  if(err) console.error(err)
+  else console.log('added items:', reply)
+})
+}
 
 app.post("/api/addPos", asyncHandler(async (req, res, next) => {
 
@@ -118,7 +213,11 @@ app.post("/api/addPos", asyncHandler(async (req, res, next) => {
 
 	console.log(longitude);
 	console.log(latitude);
-        addDB(  gpsdate, longitude, latitude, userid) 
+	addLocs(longitude, latitude);
+	var square = await checkDist(longitude, latitude, userid, gpsdate);
+	console.log("square",square);
+//        var id = addDB(   longitude, latitude, userid,gpsdate, square) 
+        //console.log(id);
         res.json({"response": "ok"})
 
 }));
