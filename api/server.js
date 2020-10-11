@@ -24,7 +24,7 @@ var path = require('path');
 
 const { Gateway, Wallets } = require('fabric-network');
 const mongoose = require('mongoose');
-mongoose.connect('mongodb://127.0.0.1:27017/bridgeydb');
+mongoose.connect('mongodb://127.0.0.1:27017/bridgeyloaddb3');
 
 //const credentials= {
  // key: privateKey,
@@ -59,10 +59,11 @@ var bridgeySchema = new mongoose.Schema({
   Longitude : { type: Number, default: null },
   Latitude : { type: Number, default: null},
   UserID : {type: Number, default: null},
-  GPSDate : {type: Date, default: null},
+  GPSDate : {type: String, default: null},
+  GPSSquare : {type: Number, default: null},
 });
    
-var bridgeyDB = mongoose.model("bridgeygps", bridgeySchema);
+var bridgeyDB = mongoose.model("bridgeynewgps", bridgeySchema);
 
 async function addDB(longitude, latitude, userid, gpsdate) {
   var bridgeyCreate = new bridgeyDB({
@@ -76,6 +77,36 @@ async function addDB(longitude, latitude, userid, gpsdate) {
          console.log("db done");
       });
 }
+
+
+function readDB() {
+
+        bridgeyDB.find( function(err, doc){
+    if(doc != null){
+//          console.log(doc);
+            addlocs(doc);
+    }else{
+            console.log("error");
+    }
+  });
+}
+
+app.post("/api/readPos", asyncHandler(async (req, res, next) => {
+
+        bridgeyDB.find( function(err, doc){
+    if(doc != null){
+//          console.log(doc);
+        //    addlocs(doc);
+	    res.json({"doc": doc});
+    }else{
+            console.log("error");
+    }
+  });
+
+
+
+}));
+
 
 app.post("/api/addPos", asyncHandler(async (req, res, next) => {
 
