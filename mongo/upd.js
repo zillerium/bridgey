@@ -30,6 +30,13 @@ const { Gateway, Wallets } = require('fabric-network');
 const mongoose = require('mongoose');
 mongoose.connect('mongodb://127.0.0.1:27017/bridgeyloaddb3');
 
+var bridgeyOldSchema = new mongoose.Schema({
+  Longitude : { type: Number, default: null },
+  Latitude : { type: Number, default: null},
+  UserID : {type: Number, default: null},
+  GPSDate : {type: String, default: null},
+});
+
 
 var bridgeySchema = new mongoose.Schema({
   Longitude : { type: Number, default: null },
@@ -46,7 +53,7 @@ var bridgeySqSchema = new mongoose.Schema({
 });
 
 
-var bridgeyDB = mongoose.model("bridgeygps", bridgeySchema);
+var bridgeyDB = mongoose.model("bridgeygps", bridgeyOldSchema);
 var bridgeyNewDB = mongoose.model("bridgeynewgps", bridgeySchema);
 var bridgeySqDB = mongoose.model("bridgeysqs", bridgeySqSchema);
 
@@ -62,20 +69,39 @@ var bridgeySqDB = mongoose.model("bridgeysqs", bridgeySqSchema);
 
 function checkDist(doc) {
 // 800 refers to 800 metres
-    for (let i=0;i<doc.length;i++) {	
-        proximity.nearby(doc[i]["Latitude"], doc[i]["Longitude"], 800, function(err, locations){
+    for (let i=0;i<doc.length;i++) {
+	console.log("============");
+	console.log(doc[i]["Latitude"]);
+	console.log(doc[i]["Longitude"]);
+        proximity.nearby(doc[i]["Longitude"], doc[i]["Latitude"], 800, function(err, locations){
            if(err) console.error(err)
            else {
 		   console.log('nearby locations:', locations)
 		   for (let j=0;j<locations.length;j++) {
-
+                       insertNewDB(locations[j], doc[i]["GPSSquare"]);
 	           }
 	   }
         })
     }
 }
 
-function insertNewDB (loc) {
+function insertNewDB (loc, square) {
+    let m=0;
+    bridgeyDB.findById( loc   ,  function(err, doc){
+    if(doc != null){
+     //       console.log(doc);
+          //  checkDist(doc);
+	    m++;
+	//    console.log(doc);
+	 //   console.log("hhhhhhhhhhhhh");
+	 //   console.log(m);
+	   // for (let k=0;k<doc.length;k++) {
+                addDB(doc["Longitude"], doc["Latitude"], doc["UserID"],doc["GPSDate"],square);
+          //  }		    
+    }else{
+            console.log("error");
+    }
+  });
 
 }
 
@@ -87,6 +113,7 @@ function addDB(longitude, latitude, userid, gpsdate, sq) {
     GPSDate : gpsdate,
     GPSSquare: sq,	  
     });
+    console.log(bridgeyCreate);
     bridgeyCreate.save(function(err, doc){
         if(err) throw err;
          console.log("db done");
