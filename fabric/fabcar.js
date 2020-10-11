@@ -17,7 +17,7 @@ class FabCar extends Contract {
 		    userid: 228,
 		    gpsdate: '2020-07-10T18:56:511Z',
 
-	    }
+	    },
 	];
 	    const cars = [
             {
@@ -105,7 +105,7 @@ class FabCar extends Contract {
     }
 
     async queryGPS(ctx, gpsNumber) {
-        const gpsAsBytes = await ctx.stub.getState(gpsNumber); // get the car from chaincode state
+        const gpsAsBytes = await ctx.stub.getState(gpsNumber); // get the gps from chaincode state
         if (!gpsAsBytes || gpsAsBytes.length === 0) {
             throw new Error(`${gpsNumber} does not exist`);
         }
@@ -129,7 +129,7 @@ class FabCar extends Contract {
         console.info('============= END : Create Car ===========');
     }
 
-    async createGPS(ctx, gpsNumber, longitiude, latitude, userid, gpsdate {
+    async createGPS(ctx, gpsNumber, longitude, latitude, userid, gpsdate ) {
         console.info('============= START : Create GPS ===========');
 
         const gps = {
